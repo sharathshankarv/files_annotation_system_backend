@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Headers,
   UseInterceptors,
   UploadedFile,
   ParseFilePipe,
@@ -10,10 +11,13 @@ import {
   UseGuards,
   Param,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { createReadStream, existsSync, statSync } from 'fs';
+import { extname, join } from 'path';
+import { Response } from 'express';
 import { CustomFileTypeValidator } from './CustomFileTypeValidator';
 import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '@/auth/jwt.auth-gaurd';
@@ -77,7 +81,59 @@ export class UploadsController {
     return {
       documentId: file.id,
       name: file.name,
-      url: `http://localhost:8080${file.path}`,
+      url: `http://localhost:8080/uploads/${file.id}/content`,
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/content')
+  async streamFile(
+    @Param('id') id: string,
+    @Headers('range') range: string | undefined,
+    @Res() res: Response,
+  ) {
+    const file = await this.uploadsService.getFileById(id);
+
+    if (!file) {
+      throw new NotFoundException('File not found');
+    }
+
+    const relativePath = file.path.replace(/^\//, '');
+    const absolutePath = join(process.cwd(), relativePath);
+
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException('Stored file not found');
+    }
+
+    const { size } = statSync(absolutePath);
+    const contentType = file.mimeType || 'application/pdf';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range');
+
+    if (!range) {
+      res.setHeader('Content-Length', size);
+      createReadStream(absolutePath).pipe(res);
+      return;
+    }
+
+    const [startValue, endValue] = range.replace(/bytes=/, '').split('-');
+    const start = Number.parseInt(startValue, 10);
+    const end = endValue ? Number.parseInt(endValue, 10) : size - 1;
+
+    if (Number.isNaN(start) || Number.isNaN(end) || start > end || end >= size) {
+      res.status(416).setHeader('Content-Range', `bytes */${size}`);
+      res.end();
+      return;
+    }
+
+    const chunkSize = end - start + 1;
+
+    res.status(206);
+    res.setHeader('Content-Length', chunkSize);
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+
+    createReadStream(absolutePath, { start, end }).pipe(res);
   }
 }

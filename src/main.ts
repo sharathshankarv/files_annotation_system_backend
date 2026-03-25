@@ -12,6 +12,8 @@ async function bootstrap() {
   app.enableCors({
     origin: 'http://localhost:3000',
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+    exposedHeaders: ['Accept-Ranges', 'Content-Length', 'Content-Range'],
   });
 
   app.useGlobalPipes(
