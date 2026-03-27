@@ -1,5 +1,6 @@
-import * as winston from 'winston';
+﻿import * as winston from 'winston';
 import { SplunkTransport } from 'winston-splunk-httplogger';
+import { LOGGING_CONFIG } from '@/config/logging.config';
 
 export const logger = winston.createLogger({
   transports: [
@@ -12,9 +13,10 @@ export const logger = winston.createLogger({
     new SplunkTransport({
       splunk: {
         token: process.env.SPLUNK_TOKEN,
-        url: process.env.SPLUNK_URL, // e.g., https://prd-p-XXXX.splunkcloud.com:8088
+        url: process.env.SPLUNK_URL,
+        index: LOGGING_CONFIG.splunkIndex,
       },
-      batchInterval: 1000, // 🛡️ Performance: Batch logs every 1s
+      batchInterval: LOGGING_CONFIG.splunkBatchIntervalMs,
     }),
   ],
 });

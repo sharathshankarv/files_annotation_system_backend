@@ -1,20 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { join } from 'path'; // ✅ ADD THIS
+import { CORS_CONFIG, SERVER_CONFIG } from '@/config/app.config';
+import { FILES_CONFIG } from '@/config/files.config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // 🛡️ 1. Configuration
-  app.enableCors({
-    origin: 'http://localhost:3000',
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
-    exposedHeaders: ['Accept-Ranges', 'Content-Length', 'Content-Range'],
-  });
+  app.enableCors(CORS_CONFIG);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -27,21 +23,17 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  // 🔥🔥🔥 ADD THIS BLOCK (CRITICAL)
-  app.useStaticAssets(join(__dirname, '..', 'uploads_folder'), {
-    prefix: '/uploads_folder',
+  app.useStaticAssets(join(__dirname, '..', FILES_CONFIG.uploadDirectoryName), {
+    prefix: FILES_CONFIG.uploadRoutePrefix,
   });
 
-  // 🛡️ 2. Start server
-  const PORT = process.env.PORT || 8080;
-
   try {
-    await app.listen(PORT);
-    console.log(`🚀 Server running on port ${PORT}`);
+    await app.listen(SERVER_CONFIG.port);
+    console.log(`Server running on port ${SERVER_CONFIG.port}`);
   } catch (err) {
-    console.error('❌ Failed to start server:', err);
+    console.error('Failed to start server:', err);
     process.exit(1);
   }
 }
 
-bootstrap();
+void bootstrap();
