@@ -7,7 +7,6 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
-export const JWT_CONFIG = {
-  secret: process.env.JWT_SECRET || 'dev_jwt_secret_change_me',
-  expiresIn: parseNumber(process.env.JWT_EXPIRES_IN_SECONDS, 3600),
+export const SECURITY_CONFIG = {
+  bcryptSaltRounds: parseNumber(process.env.BCRYPT_SALT_ROUNDS, 10),
 };

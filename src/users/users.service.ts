@@ -1,4 +1,4 @@
-import * as bcrypt from 'bcrypt';
+﻿import * as bcrypt from 'bcrypt';
 import {
   ConflictException,
   Injectable,
@@ -7,6 +7,8 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { SECURITY_CONFIG } from '@/config/security.config';
+import { ERROR_MESSAGES } from '@/config/messages.config';
 
 @Injectable()
 export class UsersService {
@@ -15,9 +17,13 @@ export class UsersService {
   async create(dto: CreateUserDto) {
     try {
       const { name, email, password } = dto;
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(
+        password,
+        SECURITY_CONFIG.bcryptSaltRounds,
+      );
+
       return await this.prisma.user.create({
-        data: { email: email, name: name, password: hashedPassword },
+        data: { email, name, password: hashedPassword },
         select: { email: true, name: true, role: true },
       });
     } catch (e: unknown) {
@@ -25,7 +31,7 @@ export class UsersService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ConflictException('Email already exists');
+        throw new ConflictException(ERROR_MESSAGES.emailAlreadyExists);
       }
       throw e;
     }
@@ -44,7 +50,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(ERROR_MESSAGES.userNotFound);
     }
 
     return user;
@@ -57,7 +63,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(ERROR_MESSAGES.userNotFound);
     }
 
     return user;

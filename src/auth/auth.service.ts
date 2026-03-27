@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+﻿import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
+import { UsersService } from '../users/users.service';
+import { ERROR_MESSAGES } from '@/config/messages.config';
 
 @Injectable()
 export class AuthService {
@@ -10,21 +11,19 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // 1. Validate the user credentials
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.userCompleteDetail(email);
 
-    // Compare plain text password with hashed password in DB
     const isMatch = await bcrypt.compare(pass, user.password);
 
     if (user && isMatch) {
       const { password, ...result } = user;
       return result;
     }
-    throw new UnauthorizedException('Invalid credentials');
+
+    throw new UnauthorizedException(ERROR_MESSAGES.invalidCredentials);
   }
 
-  // 2. Generate the JWT "Wrapper" token
   async login(user: any) {
     const payload = {
       email: user.email,

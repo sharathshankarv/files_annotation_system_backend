@@ -1,9 +1,9 @@
-import * as winston from 'winston';
+﻿import * as winston from 'winston';
 import { SplunkTransport } from 'winston-splunk-httplogger';
+import { LOGGING_CONFIG } from '@/config/logging.config';
 
-// 🛡️ Principal Strategy: Centralized Logger Instance
 export const splunkLogger = winston.createLogger({
-  level: 'info',
+  level: LOGGING_CONFIG.level,
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json(),
@@ -15,15 +15,15 @@ export const splunkLogger = winston.createLogger({
         winston.format.simple(),
       ),
     }),
-    // 🛡️ Only enable Splunk if config exists (Environment-Proof)
     ...(process.env.SPLUNK_URL
       ? [
           new SplunkTransport({
             splunk: {
               url: process.env.SPLUNK_URL,
               token: process.env.SPLUNK_TOKEN,
-              index: process.env.SPLUNK_INDEX || 'main',
+              index: LOGGING_CONFIG.splunkIndex,
             },
+            batchInterval: LOGGING_CONFIG.splunkBatchIntervalMs,
           }),
         ]
       : []),

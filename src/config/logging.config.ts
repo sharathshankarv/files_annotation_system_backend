@@ -7,7 +7,11 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
-export const JWT_CONFIG = {
-  secret: process.env.JWT_SECRET || 'dev_jwt_secret_change_me',
-  expiresIn: parseNumber(process.env.JWT_EXPIRES_IN_SECONDS, 3600),
+export const LOGGING_CONFIG = {
+  level: process.env.LOG_LEVEL || 'info',
+  splunkIndex: process.env.SPLUNK_INDEX || 'main',
+  splunkBatchIntervalMs: parseNumber(
+    process.env.SPLUNK_BATCH_INTERVAL_MS,
+    1000,
+  ),
 };

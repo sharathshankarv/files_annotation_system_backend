@@ -1,5 +1,4 @@
-import * as bcrypt from 'bcrypt';
-import {
+﻿import {
   BadRequestException,
   Body,
   Controller,
@@ -12,6 +11,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from '@/auth/jwt.auth-gaurd';
+import { ERROR_MESSAGES } from '@/config/messages.config';
 
 @Controller('users')
 export class UsersController {
@@ -24,7 +24,6 @@ export class UsersController {
   }
 
   @Get()
-  // @UseGuards(JwtAuthGuard)
   async getAll() {
     return this.userService.getAll();
   }
@@ -33,7 +32,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   async getUserByEmail(@Param('email') email: string) {
     if (!email) {
-      throw new BadRequestException('Email is required');
+      throw new BadRequestException(ERROR_MESSAGES.emailRequired);
     }
 
     return this.userService.findUserByEmail(email);
@@ -42,7 +41,7 @@ export class UsersController {
   @Post()
   async createUser(@Body() dto: CreateUserDto) {
     if (!dto.password) {
-      throw new BadRequestException('Password is required');
+      throw new BadRequestException(ERROR_MESSAGES.passwordRequired);
     }
 
     return this.userService.create({ ...dto });
