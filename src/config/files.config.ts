@@ -1,13 +1,7 @@
-﻿const parseNumber = (value: string | undefined, fallback: number): number => {
-  if (!value) {
-    return fallback;
-  }
+import { parseNumber } from './config.utils';
 
-  const parsed = Number.parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-};
-
-const uploadDirectoryName = process.env.UPLOAD_DIRECTORY_NAME || 'uploads_folder';
+const uploadDirectoryName =
+  process.env.UPLOAD_DIRECTORY_NAME || 'uploads_folder';
 
 export const FILES_CONFIG = {
   uploadDirectoryName,
@@ -27,7 +21,7 @@ export const FILES_CONFIG = {
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  ],
+  ] as string[],
   defaultStreamMimeType: 'application/pdf',
   contentRangeUnit: 'bytes',
   accessControlExposeHeaders: 'Accept-Ranges, Content-Length, Content-Range',

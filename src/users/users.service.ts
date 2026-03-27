@@ -1,4 +1,4 @@
-﻿import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import {
   ConflictException,
   Injectable,
@@ -21,7 +21,6 @@ export class UsersService {
         password,
         SECURITY_CONFIG.bcryptSaltRounds,
       );
-
       return await this.prisma.user.create({
         data: { email, name, password: hashedPassword },
         select: { email: true, name: true, role: true },

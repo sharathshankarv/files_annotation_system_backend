@@ -1,7 +1,7 @@
-﻿import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JWT_CONFIG } from '@/config/auth.config';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { JWT_CONFIG } from '@/config/auth.config';
 import { ERROR_MESSAGES } from '@/config/messages.config';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
+  validate(payload: any) {
     const currentTime = Math.floor(Date.now() / 1000);
 
     if (payload.exp < currentTime) {
