@@ -45,7 +45,7 @@ export class UsersService {
   async userCompleteDetail(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { email: true, name: true, password: true, role: true },
+      select: { id: true, email: true, name: true, password: true, role: true },
     });
 
     if (!user) {

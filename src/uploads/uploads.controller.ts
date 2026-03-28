@@ -55,6 +55,7 @@ export class UploadsController {
     file: Express.Multer.File,
   ) {
     const userId = req.user.userId;
+    console.log('User ID from JWT:', userId);
 
     const savedFile = await this.uploadsService.saveFile({
       name: file.originalname,
