@@ -25,6 +25,10 @@ export class AuthService {
   }
 
   login(user: any) {
+    if (!user?.id) {
+      throw new UnauthorizedException(ERROR_MESSAGES.invalidCredentials);
+    }
+
     const payload = {
       email: user.email,
       sub: user.id,
