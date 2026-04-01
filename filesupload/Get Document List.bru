@@ -1,0 +1,15 @@
+meta {
+  name: Get Document List
+  type: http
+  seq: 5
+}
+
+get {
+  url: localhost:8080/documents
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
