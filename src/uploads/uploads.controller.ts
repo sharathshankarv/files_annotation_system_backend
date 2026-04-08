@@ -1,21 +1,22 @@
-﻿import {
+import {
+  Body,
   Controller,
-  Post,
   Get,
   Headers,
-  UseInterceptors,
-  UploadedFile,
-  ParseFilePipe,
   MaxFileSizeValidator,
-  Req,
-  UseGuards,
-  Param,
   NotFoundException,
+  Param,
+  ParseFilePipe,
+  Post,
+  Req,
   Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { createReadStream, existsSync, statSync } from 'fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'fs';
 import { extname, join } from 'path';
 import { Response } from 'express';
 import { CustomFileTypeValidator } from './CustomFileTypeValidator';
@@ -23,6 +24,11 @@ import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '@/auth/jwt.auth-gaurd';
 import { FILES_CONFIG } from '@/config/files.config';
 import { ERROR_MESSAGES } from '@/config/messages.config';
+import { CreateAnnotationDto } from './dto/create-annotation.dto';
+import { applyAnnotationsToDocxBuffer } from './docx-annotation.util';
+
+const DOCX_MIME_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 @Controller('uploads')
 export class UploadsController {
@@ -55,8 +61,6 @@ export class UploadsController {
     file: Express.Multer.File,
   ) {
     const userId = req.user.userId;
-    console.log('User ID from JWT:', userId);
-
     const savedFile = await this.uploadsService.saveFile({
       name: file.originalname,
       path: `${FILES_CONFIG.uploadRoutePrefix}/${file.filename}`,
@@ -74,8 +78,8 @@ export class UploadsController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async getFile(@Param('id') id: string) {
-    const file = await this.uploadsService.getFileById(id);
+  async getFile(@Req() req, @Param('id') id: string) {
+    const file = await this.uploadsService.getFileByIdForUser(id, req.user.userId);
 
     if (!file) {
       throw new NotFoundException(ERROR_MESSAGES.fileNotFound);
@@ -85,17 +89,80 @@ export class UploadsController {
       documentId: file.id,
       name: file.name,
       url: `/uploads/${file.id}/content`,
+      mimeType: file.mimeType,
     };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/annotations')
+  async createAnnotation(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() payload: CreateAnnotationDto,
+  ) {
+    const file = await this.uploadsService.getFileByIdForUser(id, req.user.userId);
+
+    if (!file) {
+      throw new NotFoundException(ERROR_MESSAGES.fileNotFound);
+    }
+
+    return this.uploadsService.createAnnotation(id, req.user.userId, payload);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/annotations')
+  async getAnnotations(@Req() req, @Param('id') id: string) {
+    const file = await this.uploadsService.getFileByIdForUser(id, req.user.userId);
+
+    if (!file) {
+      throw new NotFoundException(ERROR_MESSAGES.fileNotFound);
+    }
+
+    return this.uploadsService.getAnnotations(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/download')
+  async downloadFile(@Req() req, @Param('id') id: string, @Res() res: Response) {
+    const file = await this.uploadsService.getFileByIdForUser(id, req.user.userId);
+
+    if (!file) {
+      throw new NotFoundException(ERROR_MESSAGES.fileNotFound);
+    }
+
+    const relativePath = file.path.replace(/^\//, '');
+    const absolutePath = join(process.cwd(), relativePath);
+
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException(ERROR_MESSAGES.storedFileNotFound);
+    }
+
+    res.setHeader('Content-Type', file.mimeType || FILES_CONFIG.defaultStreamMimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
+
+    if (file.mimeType !== DOCX_MIME_TYPE) {
+      createReadStream(absolutePath).pipe(res);
+      return;
+    }
+
+    const [sourceBuffer, annotations] = await Promise.all([
+      Promise.resolve(readFileSync(absolutePath)),
+      this.uploadsService.getAnnotations(id),
+    ]);
+
+    const annotatedBuffer = await applyAnnotationsToDocxBuffer(sourceBuffer, annotations);
+    res.send(annotatedBuffer);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/content')
   async streamFile(
+    @Req() req,
     @Param('id') id: string,
     @Headers('range') range: string | undefined,
     @Res() res: Response,
   ) {
-    const file = await this.uploadsService.getFileById(id);
+    const file = await this.uploadsService.getFileByIdForUser(id, req.user.userId);
 
     if (!file) {
       throw new NotFoundException(ERROR_MESSAGES.fileNotFound);
