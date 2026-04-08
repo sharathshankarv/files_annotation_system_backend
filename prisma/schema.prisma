@@ -17,6 +17,7 @@ model File {
   updatedAt DateTime @updatedAt
   uploadedBy User? @relation(fields: [uploadedById], references: [id])
   uploadedById String?
+  annotations Annotation[]
 }
 
 model User {
@@ -28,6 +29,33 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   files File[]
+  annotations Annotation[]
+}
+
+model Annotation {
+  id          String   @id @default(uuid())
+  comment     String
+  quotedText  String
+  page        Int
+  x           Float?
+  y           Float?
+  width       Float?
+  height      Float?
+  normalizedX Float?
+  normalizedY Float?
+  normalizedWidth Float?
+  normalizedHeight Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fileId      String
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([createdById])
 }
 
 enum Role {
