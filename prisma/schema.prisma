@@ -10,6 +10,7 @@ generator client {
 model File {
   id        String   @id @default(uuid())
   name      String
+  version   Int      @default(1)
   path      String
   size      Int
   mimeType  String
@@ -18,6 +19,9 @@ model File {
   uploadedBy User? @relation(fields: [uploadedById], references: [id])
   uploadedById String?
   annotations Annotation[]
+
+  @@index([uploadedById, name])
+  @@unique([uploadedById, name, version])
 }
 
 model User {
@@ -36,6 +40,7 @@ model Annotation {
   id          String   @id @default(uuid())
   comment     String
   quotedText  String
+  highlightColor String @default("#fef08a")
   page        Int
   x           Float?
   y           Float?

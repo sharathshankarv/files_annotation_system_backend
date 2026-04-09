@@ -1,5 +1,6 @@
 import {
   IsInt,
+  Matches,
   IsNumber,
   IsOptional,
   IsString,
@@ -15,6 +16,11 @@ export class CreateAnnotationDto {
   @IsString()
   @MinLength(1)
   quotedText: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^#([0-9A-Fa-f]{6})$/)
+  highlightColor?: string;
 
   @IsInt()
   @Min(1)
