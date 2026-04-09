@@ -1,7 +1,8 @@
-import JSZip from 'jszip';
+import { readZipEntries, writeZipEntries } from './zip.util';
 
 type DocxAnnotationInput = {
   id: string;
+  authorName?: string | null;
   comment: string;
   quotedText: string;
   page: number;
@@ -98,21 +99,19 @@ function splitRunXmlAroundQuote(runXml: string, quote: string): string | null {
 
 function buildCommentXml(commentId: number, annotation: DocxAnnotationInput): string {
   const commentText = escapeXml(annotation.comment.trim());
-  const author = 'Reviewer';
+  const author = escapeXml(annotation.authorName?.trim() || 'Reviewer');
   const createdAt = annotation.createdAt.toISOString();
 
   return `<w:comment w:id="${commentId}" w:author="${author}" w:date="${createdAt}"><w:p><w:r><w:t xml:space="preserve">${commentText}</w:t></w:r></w:p></w:comment>`;
 }
 
-function ensureCommentsPart(zip: JSZip): Promise<string> {
-  const commentsFile = zip.file(COMMENTS_XML_PATH);
-  if (commentsFile) {
-    return commentsFile.async('string');
+function ensureCommentsPart(entries: Map<string, Buffer>): string {
+  const existing = entries.get(COMMENTS_XML_PATH);
+  if (existing) {
+    return existing.toString('utf-8');
   }
 
-  return Promise.resolve(
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:comments>',
-  );
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:comments>';
 }
 
 function getNextCommentId(existingCommentsXml: string): number {
@@ -328,17 +327,14 @@ export async function applyAnnotationsToDocxBuffer(
     return originalBuffer;
   }
 
-  const zip = await JSZip.loadAsync(originalBuffer);
-  const documentFile = zip.file(DOCUMENT_XML_PATH);
-
-  if (!documentFile) {
+  const entries = await readZipEntries(originalBuffer);
+  const documentBuffer = entries.get(DOCUMENT_XML_PATH);
+  if (!documentBuffer) {
     return originalBuffer;
   }
 
-  const [documentXml, existingCommentsXml] = await Promise.all([
-    documentFile.async('string'),
-    ensureCommentsPart(zip),
-  ]);
+  const documentXml = documentBuffer.toString('utf-8');
+  const existingCommentsXml = ensureCommentsPart(entries);
 
   const startingCommentId = getNextCommentId(existingCommentsXml);
   const { updatedDocumentXml, used } = addCommentAnchorsToDocumentXml(
@@ -352,20 +348,23 @@ export async function applyAnnotationsToDocxBuffer(
   }
 
   const updatedCommentsXml = mergeCommentsXml(existingCommentsXml, used);
-  zip.file(DOCUMENT_XML_PATH, updatedDocumentXml);
-  zip.file(COMMENTS_XML_PATH, updatedCommentsXml);
+  entries.set(DOCUMENT_XML_PATH, Buffer.from(updatedDocumentXml, 'utf-8'));
+  entries.set(COMMENTS_XML_PATH, Buffer.from(updatedCommentsXml, 'utf-8'));
 
-  const relsFile = zip.file(RELS_XML_PATH);
-  if (relsFile) {
-    const relsXml = await relsFile.async('string');
-    zip.file(RELS_XML_PATH, ensureCommentsRelationship(relsXml));
+  const relsBuffer = entries.get(RELS_XML_PATH);
+  if (relsBuffer) {
+    const relsXml = relsBuffer.toString('utf-8');
+    entries.set(RELS_XML_PATH, Buffer.from(ensureCommentsRelationship(relsXml), 'utf-8'));
   }
 
-  const contentTypesFile = zip.file(CONTENT_TYPES_XML_PATH);
-  if (contentTypesFile) {
-    const contentTypesXml = await contentTypesFile.async('string');
-    zip.file(CONTENT_TYPES_XML_PATH, ensureCommentsContentType(contentTypesXml));
+  const contentTypesBuffer = entries.get(CONTENT_TYPES_XML_PATH);
+  if (contentTypesBuffer) {
+    const contentTypesXml = contentTypesBuffer.toString('utf-8');
+    entries.set(
+      CONTENT_TYPES_XML_PATH,
+      Buffer.from(ensureCommentsContentType(contentTypesXml), 'utf-8'),
+    );
   }
 
-  return zip.generateAsync({ type: 'nodebuffer' });
+  return writeZipEntries(entries);
 }

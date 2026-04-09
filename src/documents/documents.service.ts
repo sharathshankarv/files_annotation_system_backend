@@ -11,6 +11,7 @@ export class DocumentsService {
       select: {
         id: true,
         name: true,
+        version: true,
         size: true,
         mimeType: true,
         updatedAt: true,

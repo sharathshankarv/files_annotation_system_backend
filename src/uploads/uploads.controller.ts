@@ -26,9 +26,11 @@ import { FILES_CONFIG } from '@/config/files.config';
 import { ERROR_MESSAGES } from '@/config/messages.config';
 import { CreateAnnotationDto } from './dto/create-annotation.dto';
 import { applyAnnotationsToDocxBuffer } from './docx-annotation.util';
+import { applyAnnotationsToPdfBuffer } from './pdf-annotation.util';
 
 const DOCX_MIME_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const PDF_MIME_TYPE = 'application/pdf';
 
 @Controller('uploads')
 export class UploadsController {
@@ -72,6 +74,7 @@ export class UploadsController {
     return {
       documentId: savedFile.id,
       name: savedFile.name,
+      version: savedFile.version,
       url: savedFile.path,
     };
   }
@@ -88,6 +91,7 @@ export class UploadsController {
     return {
       documentId: file.id,
       name: file.name,
+      version: file.version,
       url: `/uploads/${file.id}/content`,
       mimeType: file.mimeType,
     };
@@ -140,7 +144,7 @@ export class UploadsController {
     res.setHeader('Content-Type', file.mimeType || FILES_CONFIG.defaultStreamMimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${file.name}"`);
 
-    if (file.mimeType !== DOCX_MIME_TYPE) {
+    if (file.mimeType !== DOCX_MIME_TYPE && file.mimeType !== PDF_MIME_TYPE) {
       createReadStream(absolutePath).pipe(res);
       return;
     }
@@ -150,7 +154,11 @@ export class UploadsController {
       this.uploadsService.getAnnotations(id),
     ]);
 
-    const annotatedBuffer = await applyAnnotationsToDocxBuffer(sourceBuffer, annotations);
+    const annotatedBuffer =
+      file.mimeType === DOCX_MIME_TYPE
+        ? await applyAnnotationsToDocxBuffer(sourceBuffer, annotations)
+        : await applyAnnotationsToPdfBuffer(sourceBuffer, annotations);
+
     res.send(annotatedBuffer);
   }
 
