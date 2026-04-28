@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFPage, StandardFonts, rgb } from 'pdf-lib';
 
 type PdfAnnotationInput = {
   comment: string;
@@ -131,11 +131,56 @@ export async function applyAnnotationsToPdfBuffer(
   });
 
   const overflowItems: Array<PdfAnnotationInput & { markerNumber: number }> = [];
+  const markerPositions = new Map<
+    number,
+    { page: PDFPage; x: number; y: number; width: number; height: number }
+  >();
+  const markerToOverflowTarget = new Map<
+    number,
+    { page: PDFPage; x: number; y: number }
+  >();
+  const markerLinkOrigins: Array<{
+    markerNumber: number;
+    page: PDFPage;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }> = [];
+
+  const addGoToLink = (
+    page: PDFPage,
+    rect: { x: number; y: number; width: number; height: number },
+    destination: { page: PDFPage; x: number; y: number },
+  ) => {
+    if (!page || !destination.page) {
+      return;
+    }
+
+    const destinationPage = destination.page;
+    const destinationArray = pdf.context.obj([
+      destinationPage.ref,
+      PDFName.of('XYZ'),
+      Math.max(destination.x, 0),
+      Math.max(destination.y, 0),
+      0,
+    ]);
+    const link = pdf.context.obj({
+      Type: PDFName.of('Annot'),
+      Subtype: PDFName.of('Link'),
+      Rect: [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height],
+      Border: [0, 0, 0],
+      Dest: pdf.context.obj([destinationPage.ref, PDFName.of('Fit')]),
+    });
+    const linkRef = pdf.context.register(link);
+    page.node.addAnnot(linkRef);
+  };
 
   validItems.forEach((annotation) => {
     const page = pages[annotation.pageIndex];
     const { height } = page.getSize();
-    const originalWidth = pageBaseWidthByIndex.get(annotation.pageIndex) ?? fixedPageWidth;
+    const originalWidth =
+      pageBaseWidthByIndex.get(annotation.pageIndex) ?? fixedPageWidth;
     const contentRightBoundary = originalWidth - 6;
 
     const normalizedX = clamp01(annotation.normalizedX ?? 0.05);
@@ -182,6 +227,22 @@ export async function applyAnnotationsToPdfBuffer(
       font,
       color: rgb(1, 1, 1),
     });
+
+    markerPositions.set(annotation.markerNumber, {
+      page,
+      x: boxX,
+      y: Math.max(Math.min(boxY + boxHeight + 12, height - 8), 8),
+      width: boxWidth,
+      height: boxHeight,
+    });
+    markerLinkOrigins.push({
+      markerNumber: annotation.markerNumber,
+      page,
+      x: markerX - markerRadius,
+      y: markerY - markerRadius,
+      width: markerRadius * 2,
+      height: markerRadius * 2,
+    });
   });
 
   pageItemMap.forEach((items, pageIndex) => {
@@ -219,6 +280,7 @@ export async function applyAnnotationsToPdfBuffer(
       (a, b) => (a.normalizedY ?? 0) - (b.normalizedY ?? 0),
     );
     const occupiedBands: Array<{ top: number; bottom: number }> = [];
+    const noteGap = 10;
     const topPadding = 20;
     const bottomPadding = 20;
     const dynamicMaxLines = Math.max(
@@ -259,11 +321,11 @@ export async function applyAnnotationsToPdfBuffer(
       for (const band of occupiedBands) {
         const overlaps = yTop < band.bottom && yTop + noteHeight > band.top;
         if (overlaps) {
-          yTop = band.bottom + 6;
+          yTop = band.bottom + noteGap;
         }
       }
 
-      if (yTop + noteHeight > height - bottomPadding) {
+      if (yTop + noteHeight + noteGap > height - bottomPadding) {
         overflowItems.push(item);
         return;
       }
@@ -320,6 +382,22 @@ export async function applyAnnotationsToPdfBuffer(
           color: rgb(0.28, 0.35, 0.55),
           maxWidth: maxTextWidth,
         });
+        markerLinkOrigins.push({
+          markerNumber: item.markerNumber,
+          page,
+          x: gutterX + innerPadding,
+          y: textY - 3,
+          width: Math.max(maxTextWidth - 4, 28),
+          height: 9,
+        });
+        markerLinkOrigins.push({
+          markerNumber: item.markerNumber,
+          page,
+          x: gutterX + 2,
+          y: height - yTop - noteHeight,
+          width: gutterWidth - 4,
+          height: noteHeight,
+        });
         overflowItems.push(item);
       }
     });
@@ -373,6 +451,21 @@ export async function applyAnnotationsToPdfBuffer(
         borderWidth: 0.6,
       });
 
+      const headerY = cursorY - 2;
+      page.drawText(`Comment #${item.markerNumber} (Page ${item.page})`, {
+        x: marginX,
+        y: headerY,
+        size: 8.5,
+        font,
+        color: rgb(0.14, 0.2, 0.38),
+      });
+      markerToOverflowTarget.set(item.markerNumber, {
+        page,
+        x: marginX - 4,
+        y: Math.max(headerY + 12, 10),
+      });
+      cursorY -= 12;
+
       wrapped.forEach((line) => {
         page.drawText(line, {
           x: marginX,
@@ -392,9 +485,44 @@ export async function applyAnnotationsToPdfBuffer(
         maxWidth,
       });
       cursorY -= 12;
-      cursorY -= index % 2 === 0 ? 20 : 22;
+      cursorY -= index % 2 === 0 ? 24 : 26;
     });
   }
+
+  markerLinkOrigins.forEach((origin) => {
+    const destination = markerToOverflowTarget.get(origin.markerNumber);
+    if (!destination) {
+      return;
+    }
+
+    addGoToLink(
+      origin.page,
+      { x: origin.x, y: origin.y, width: origin.width, height: origin.height },
+      destination,
+    );
+  });
+
+  markerToOverflowTarget.forEach((target, markerNumber) => {
+    const origin = markerPositions.get(markerNumber);
+    if (!origin) {
+      return;
+    }
+
+    addGoToLink(
+      target.page,
+      {
+        x: Math.max(target.x - 2, 0),
+        y: Math.max(target.y - 8, 0),
+        width: 170,
+        height: 14,
+      },
+      {
+        page: origin.page,
+        x: Math.max(origin.x - 8, 0),
+        y: origin.y,
+      },
+    );
+  });
 
   const bytes = await pdf.save();
   return Buffer.from(bytes);

@@ -68,6 +68,7 @@ $ npm install -g @nestjs/mau
 $ mau deploy
 ```
 
+<<<<<<< Updated upstream
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
 ## Resources
@@ -96,3 +97,20 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+=======
+`prisma generate` runs automatically on install (`postinstall` script).
+
+## Presentation Fidelity (PPT/PPTX)
+
+To preserve slide styles (charts, tables, layout), run Gotenberg from repo root:
+
+```bash
+docker compose up -d gotenberg
+```
+
+Set in `backend/.env`:
+
+```bash
+GOTENBERG_URL="http://localhost:3000"
+```
+>>>>>>> Stashed changes

@@ -52,6 +52,33 @@ function buildTextRun(
   return `${runOpenTag}${runPropertiesXml}<w:t xml:space="preserve">${escapeXml(text)}</w:t></w:r>`;
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findRangeIgnoringWhitespace(
+  source: string,
+  quote: string,
+): { start: number; end: number } | null {
+  const words = quote.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) {
+    return null;
+  }
+
+  const pattern = words.map((word) => escapeRegex(word)).join('\\s+');
+  const matcher = new RegExp(pattern, 'i');
+  const match = matcher.exec(source);
+
+  if (!match || match.index === undefined) {
+    return null;
+  }
+
+  return {
+    start: match.index,
+    end: match.index + match[0].length,
+  };
+}
+
 function splitRunXmlAroundQuote(runXml: string, quote: string): string | null {
   const runOpenTagMatch = runXml.match(/^<w:r\b[^>]*>/);
   if (!runOpenTagMatch) {
@@ -74,14 +101,14 @@ function splitRunXmlAroundQuote(runXml: string, quote: string): string | null {
     return null;
   }
 
-  const directIndex = runText.toLowerCase().indexOf(quote.toLowerCase());
-  if (directIndex === -1) {
+  const matchedRange = findRangeIgnoringWhitespace(runText, quote);
+  if (!matchedRange) {
     return null;
   }
 
-  const before = runText.slice(0, directIndex);
-  const selected = runText.slice(directIndex, directIndex + quote.length);
-  const after = runText.slice(directIndex + quote.length);
+  const before = runText.slice(0, matchedRange.start);
+  const selected = runText.slice(matchedRange.start, matchedRange.end);
+  const after = runText.slice(matchedRange.end);
 
   return [
     buildTextRun(runOpenTag, runPropertiesXml, before),
