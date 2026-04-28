@@ -15,7 +15,7 @@ model File {
   size      Int
   mimeType  String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt\
   uploadedBy User? @relation(fields: [uploadedById], references: [id])
   uploadedById String?
   annotations Annotation[]

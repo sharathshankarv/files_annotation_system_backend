@@ -1,6 +1,7 @@
 ﻿import { FileValidator } from '@nestjs/common';
 import { FILES_CONFIG } from '@/config/files.config';
 import { ERROR_MESSAGES } from '@/config/messages.config';
+import { extname } from 'path';
 
 export class CustomFileTypeValidator extends FileValidator {
   constructor() {
@@ -8,7 +9,11 @@ export class CustomFileTypeValidator extends FileValidator {
   }
 
   isValid(file: Express.Multer.File): boolean {
-    return FILES_CONFIG.allowedDocumentMimeTypes.includes(file.mimetype);
+    const extension = extname(file.originalname || '').toLowerCase();
+    return (
+      FILES_CONFIG.allowedDocumentMimeTypes.includes(file.mimetype) ||
+      FILES_CONFIG.allowedDocumentExtensions.includes(extension)
+    );
   }
 
   buildErrorMessage(): string {

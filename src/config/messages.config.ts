@@ -8,5 +8,5 @@ export const ERROR_MESSAGES = {
   fileNotFound: 'File not found',
   storedFileNotFound: 'Stored file not found',
   invalidFileType:
-    'Invalid file type. Please upload a PDF, DOCX, or PPTX document.',
+    'Invalid file type. Please upload a PDF, DOCX, PPTX, or PPT document.',
 } as const;
