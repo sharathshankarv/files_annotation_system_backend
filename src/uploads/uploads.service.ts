@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateAnnotationDto } from './dto/create-annotation.dto';
+import { UpdateAnnotationDto } from './dto/update-annotation.dto';
 
 @Injectable()
 export class UploadsService {
@@ -136,5 +137,40 @@ export class UploadsService {
         authorName: createdBy?.name || createdBy?.email || 'Unknown',
       };
     });
+  }
+
+  async updateAnnotation(fileId: string, annotationId: string, dto: UpdateAnnotationDto) {
+    const existing = await this.prisma.annotation.findFirst({
+      where: {
+        id: annotationId,
+        fileId,
+      },
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    const row = await this.prisma.annotation.update({
+      where: { id: annotationId },
+      data: {
+        ...(dto.comment ? { comment: dto.comment.trim() } : {}),
+        ...(dto.highlightColor ? { highlightColor: dto.highlightColor } : {}),
+      },
+      include: {
+        createdBy: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const { createdBy, ...annotation } = row;
+    return {
+      ...annotation,
+      authorName: createdBy?.name || createdBy?.email || 'Unknown',
+    };
   }
 }

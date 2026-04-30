@@ -9,6 +9,7 @@ import {
   Param,
   ParseFilePipe,
   Post,
+  Patch,
   Req,
   Res,
   UploadedFile,
@@ -28,6 +29,7 @@ import { ERROR_MESSAGES } from '@/config/messages.config';
 import { CreateAnnotationDto } from './dto/create-annotation.dto';
 import { MockAnnotationRequestDto } from './dto/mock-annotation-request.dto';
 import { MockFullDocScanRequestDto } from './dto/mock-full-doc-scan-request.dto';
+import { UpdateAnnotationDto } from './dto/update-annotation.dto';
 import { applyAnnotationsToDocxBuffer } from './docx-annotation.util';
 import { applyAnnotationsToPdfBuffer } from './pdf-annotation.util';
 import { extractSlidesFromPptxBuffer } from './pptx-slide.util';
@@ -226,6 +228,27 @@ export class UploadsController {
     }
 
     return this.uploadsService.getAnnotations(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/annotations/:annotationId')
+  async updateAnnotation(
+    @Req() req,
+    @Param('id') id: string,
+    @Param('annotationId') annotationId: string,
+    @Body() payload: UpdateAnnotationDto,
+  ) {
+    const file = await this.uploadsService.getFileByIdForUser(id, req.user.userId);
+    if (!file) {
+      throw new NotFoundException(ERROR_MESSAGES.fileNotFound);
+    }
+
+    const updated = await this.uploadsService.updateAnnotation(id, annotationId, payload);
+    if (!updated) {
+      throw new NotFoundException('Annotation not found for this document.');
+    }
+
+    return updated;
   }
 
   @UseGuards(JwtAuthGuard)
