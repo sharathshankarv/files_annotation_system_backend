@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { SECURITY_CONFIG } from '@/config/security.config';
@@ -27,7 +27,7 @@ export class UsersService {
       });
     } catch (e: unknown) {
       if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e instanceof PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
         throw new ConflictException(ERROR_MESSAGES.emailAlreadyExists);
